@@ -1,0 +1,29 @@
+# --- Environment & Credentials ---
+.env
+secrets.json
+*.pem
+*.pfx
+
+# --- UV & Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+uv.lock
+
+# --- OS & IDE ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# --- Build & Output ---
+dist/
+build/
+*.egg-info/
+node_modules/

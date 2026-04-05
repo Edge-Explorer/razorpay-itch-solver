@@ -63,7 +63,7 @@ For each problem, we follow a structured brainstorming and development workflow:
 
 | # | Project Folder | Problem | Category | Status |
 |---|---------------|---------|----------|--------|
-| — | *Coming Soon* | Being selected from Fix My Itch | — | 🔍 Researching |
+| 1 | [problem-supplier-verification-ai-engine](./problem-supplier-verification-ai-engine/README.md) | "Why can't businesses verify new suppliers before purchasing?" | B2B Services | 🏗️ Brainstorming |
 
 ---
 
