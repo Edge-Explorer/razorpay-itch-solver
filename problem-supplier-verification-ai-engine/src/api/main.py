@@ -1,4 +1,5 @@
-from fastapi import FastAPI 
+from fastapi import FastAPI, Depends
+from src.workers.tasks import verify_supplier_task
 from src.services.redis import redis_service
 from src.config.settings import settings
 
@@ -16,6 +17,27 @@ async def startup_event():
     """
     await redis_service.connect()
     print("App Startup: Redis Connected")
+
+@app.post("/verify")
+async def request_verification(name: str, entity_id: str):
+    """ 
+    Enqueues a supplier verification job in the background cluster.
+    This returns a task_id IMMEDIATELY. Total scalability.
+    """
+    # .delay() is the magic word: it sends the task to Redis/Celery!
+    task= verify_supplier_task.delay(name, entity_id)
+
+    return{
+        "message": "Verification started.",
+        "task_id": task.id,
+        "status": "pending"
+    }
+
+@app.get("/status/{task_id}")
+async def get_task_status(task_id: str):
+    """ Allows the user to poll for the AI research results """
+    # Later we will add logic to check the result in Redis
+    return {"task_id": task_id, "status": "processing"}
 
 @app.on_event("shutdown")
 async def shutdown_event():
