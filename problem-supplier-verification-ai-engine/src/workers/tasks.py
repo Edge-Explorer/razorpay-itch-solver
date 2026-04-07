@@ -5,6 +5,7 @@ from src.workers.celery_app import worker_app
 from src.models.supplier import Supplier
 from src.agents.researcher import ResearcherAgent 
 from sqlalchemy import select
+from src.utils.parsers import parse_json_report
 
 @worker_app.task(bind= True, max_retries= 3)
 def verify_supplier_task(self, supplier_name: str, entity_id: str):
@@ -20,8 +21,7 @@ async def process_verification(name: str, entity_id: str):
     ai_raw_result= await agent.verify_supplier(name, entity_id)
 
     # 3. Clean and parse the AI JSON
-    cleaned_json= ai_raw_result.replace("```json", "").replace("```", "").strip()
-    ai_report= json.loads(cleaned_json)
+    ai_report= parse_json_report(ai_raw_result)
 
     # 4. Save result to Neon Database (Audit Trail)
     async with AsyncSessionLocal() as session:
@@ -36,6 +36,6 @@ async def process_verification(name: str, entity_id: str):
                 session.add(supplier)
 
             supplier.detailed_report = ai_report
-            supplier.risk_score = ai_report.get("risk_score", 0.0)
-            supplier.summary = ai_report.get("summary", "No summary provided.")
+            supplier.risk_score = ai_report.get("risk_score", 0.5)
+            supplier.summary = ai_report.get("summary", "N/A")
     return {"status": "success", "entity_id": entity_id}
