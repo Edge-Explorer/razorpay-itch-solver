@@ -10,7 +10,14 @@ import os
 
 @worker_app.task(bind= True, max_retries= 3)
 def verify_supplier_task(self, supplier_name: str, entity_id: str):
-    return asyncio.run(process_verification(supplier_name, entity_id))
+    """ Celery task that bridges sync and async code """
+    try:
+        loop= asyncio.get_event_loop()
+    except RuntimeError:
+        loop= asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(process_verification(supplier_name, entity_id))
 
 async def process_verification(name: str, entity_id: str):
     """ The Real-World AI Research Logic """
