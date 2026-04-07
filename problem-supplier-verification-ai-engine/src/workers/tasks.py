@@ -6,6 +6,7 @@ from src.models.supplier import Supplier
 from src.agents.researcher import ResearcherAgent 
 from sqlalchemy import select
 from src.utils.parsers import parse_json_report
+import os
 
 @worker_app.task(bind= True, max_retries= 3)
 def verify_supplier_task(self, supplier_name: str, entity_id: str):
