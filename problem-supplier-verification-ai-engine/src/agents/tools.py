@@ -11,12 +11,15 @@ def search_web(query: str) -> str:
     payload = {
         "api_key": settings.TAVILY_API_KEY,
         "query": query,
-        "search_depth": "smart",
+        "search_depth": "advanced",
         "include_answer": True
     }
 
     with httpx.Client() as client:
         response = client.post(url, json=payload)
+
+        if response.status_code != 200:
+            return f"Search Failed with status {response.status_code}: {response.text}"
         data = response.json()
         return data.get("answer", "No specific information found.")
 
