@@ -16,10 +16,12 @@ class ResearcherAgent:
 
     async def verify_supplier(self, name: str, entity_id: str):
         prompt = (
-            f"Research the supplier '{name}' with Entity ID '{entity_id}'. "
-            "Verify their registration and search for any red flags or news. "
-            "Return a final JSON report with: 'status', 'risk_score' (0 to 1), "
-            "and a 'summary'."
+            f"AUDIT PLAN for supplier '{name}' (ID: {entity_id}):\n"
+            "1. Search for official registration and news.\n"
+            "2. Compare the Registry data vs the Web data.\n"
+            "3. FOR EVERY RED FLAG: Mention the Source URL and Date.\n"
+            "4. Return ONLY a JSON with: status, risk_score (0-1), confidence_score (0-100), "
+            "summary, and an array of 'sources' (url, title, date)."
         )
 
         # Gemini will automatically call the synchronous tools in Tools list
