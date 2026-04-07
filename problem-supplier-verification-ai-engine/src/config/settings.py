@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # --- AI & LLM (Gemini 2.0 Flash) ---
     GOOGLE_API_KEY: str
 
+    # --- TAVILY API KEY ---
+    TAVILY_API_KEY: str
+
     # --- Infrastructure (Backend & Persistence) ---
     REDIS_URL: str= "redis://localhost:6379/0"
     DATABASE_URL: str= "postgresql+asyncpg://user:password@localhost:5432/supplier_db"
