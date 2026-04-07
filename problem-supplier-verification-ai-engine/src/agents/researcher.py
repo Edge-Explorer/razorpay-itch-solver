@@ -22,6 +22,7 @@ class ResearcherAgent:
             "and a 'summary'."
         )
 
+        # Gemini will automatically call the synchronous tools in Tools list
         response = self.client.models.generate_content(
             model=self.model_id,
             contents=prompt,
