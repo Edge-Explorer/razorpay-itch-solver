@@ -1,13 +1,25 @@
 import os
+import httpx
+from src.config.settings import settings
 from typing import Dict, List
 
 async def search_web(query: str) -> str:
     """
-    Performs a live web search to find news, reviews, and official records.
-    In a pro setup, we'd use Serper.dev or Tavily. 
-    For now, we'll simulate the response to build the reasoning loop.
+    Performs a live web search using Tavily API for AI-optimized results.
     """
-    return f"Search results for '{query}': Found official website, 3 positive reviews, no recent lawsuits."
+    url= "https://api.tavily.com/search"
+    payload= {
+        "api_key": settings.TAVILY_API_KEY,
+        "query": query,
+        "search_depth": "smart",
+        "include_answer": True
+    }
+
+    async with httpx.AsyncClient() as client:
+        response= await client.post(url, json= payload)
+        data= response.json()
+
+        return data.get("answer", "No specific information found.")
 
 async def verify_registration(entity_id: str) -> Dict:
     """

@@ -17,5 +17,5 @@ dependencies = [
     "alembic>=1.13.1",
     "pydantic-settings>=2.2.1",
     "python-dotenv>=1.0.1",
-    "duckduckgo-search>=5.0.0"
+    "duckduckgo-search>=5.0.0",
 ]
