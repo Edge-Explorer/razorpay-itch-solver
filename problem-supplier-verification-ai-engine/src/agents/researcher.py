@@ -16,12 +16,16 @@ class ResearcherAgent:
 
     async def verify_supplier(self, name: str, entity_id: str):
         prompt = (
-            f"AUDIT PLAN for supplier '{name}' (ID: {entity_id}):\n"
-            "1. Search for official registration and news.\n"
-            "2. Compare the Registry data vs the Web data.\n"
-            "3. FOR EVERY RED FLAG: Mention the Source URL and Date.\n"
-            "4. Return ONLY a JSON with: status, risk_score (0-1), confidence_score (0-100), "
-            "summary, and an array of 'sources' (url, title, date)."
+            f"You are investigating '{name}' (Entity ID: {entity_id}).\n"
+            "STEP 1: Use your tools to find their registration and latest news.\n"
+            "STEP 2: Analyze all results for fraud, red flags, or bankruptcies.\n"
+            "STEP 3: Compare your findings with the provided Entity ID.\n\n"
+            "FINAL REQUIREMENT: Output your result as a JSON OBJECT containing:\n"
+            "- status: 'verified', 'flagged', or 'fraud'\n"
+            "- risk_score: 0.0 to 1.0\n"
+            "- confidence_score: 0 to 100\n"
+            "- summary: A detailed analysis (min 3 sentences)\n"
+            "- sources: List of {url, title, date} used for your verdict."
         )
 
         # Gemini will automatically call the synchronous tools in Tools list

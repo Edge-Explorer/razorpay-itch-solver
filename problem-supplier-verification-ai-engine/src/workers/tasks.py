@@ -38,4 +38,15 @@ async def process_verification(name: str, entity_id: str):
             supplier.detailed_report = ai_report
             supplier.risk_score = ai_report.get("risk_score", 0.5)
             supplier.summary = ai_report.get("summary", "N/A")
+    
+    save_local_report(entity_id, ai_report)
     return {"status": "success", "entity_id": entity_id}
+
+def save_local_report(entity_id, report):
+    """ Saves a systematic JSON snapshot of the audit """
+    reports_dir= "data/reports"
+    os.makedirs(reports_dir, exist_ok= True)
+
+    file_path= f"{reports_dir}/{entity_id}.json"
+    with open(file_path, "w", encoding= "utf-8") as f:
+        json.dump(report, f, indent= 4, ensure_ascii= False)

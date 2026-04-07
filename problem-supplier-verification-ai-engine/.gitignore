@@ -39,3 +39,7 @@ htmlcov/
 
 # --- Artifacts ---
 *.log
+
+# --- Data ---
+data/
+problem-supplier-verification-ai-engine/data/
