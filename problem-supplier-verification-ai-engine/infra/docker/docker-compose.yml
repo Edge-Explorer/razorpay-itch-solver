@@ -16,7 +16,6 @@ services:
       - ../../data:/app/data
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=${DATABASE_URL}
 
   # THE MUSCLE (SCALABLE WORKER)
   worker:
@@ -31,7 +30,6 @@ services:
       - ../../data:/app/data
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=${DATABASE_URL}
 
   # THE MESSAGE BUS
   redis:
