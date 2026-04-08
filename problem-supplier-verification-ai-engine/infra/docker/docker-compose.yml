@@ -12,6 +12,11 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+    volumes:
+      - ../../data:/app/data
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
 
   # THE MUSCLE (SCALABLE WORKER)
   worker:
@@ -22,6 +27,11 @@ services:
     env_file: ../../.env
     depends_on:
       - redis
+    volumes:
+      - ../../data:/app/data
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL}
 
   # THE MESSAGE BUS
   redis:
