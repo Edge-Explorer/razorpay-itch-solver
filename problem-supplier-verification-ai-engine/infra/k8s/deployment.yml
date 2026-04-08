@@ -1,7 +1,7 @@
 # SUMMARY OF K8S STRATEGY:
 # 1. Deployment: One for 'api', one for 'worker'.
 # 2. Service: A LoadBalancer to distribute traffic.
-# 3. HPA: Scale Workers from 2 to 20 based on CPU load.
+# 3. HPA (HorizontalPodAutoscaler): Scale Workers from 2 to 20 based on CPU load.
 
 apiVersion: apps/v1
 kind: Deployment
