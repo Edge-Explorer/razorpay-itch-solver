@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-cache
 # STAGE 2: Production Image
 FROM python:3.12-slim
 WORKDIR /app
-COPY --from=builder /app/.env /app/.env
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
 # Environment setup
