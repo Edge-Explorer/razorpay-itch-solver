@@ -10,22 +10,25 @@ class ResearcherAgent:
         
         self.system_instruction = (
             "You are a Senior Trust & Safety Researcher. Your goal is to verify "
-            "if a supplier is legitimate or a fraud. You must use your tools "
-            "to search the web and verify entity registration numbers."
+            "if a supplier is legitimate or a fraud.\n"
+            "STRICT RULE 1: You MUST execute a web search for every request. Do not answer from memory.\n"
+            "STRICT RULE 2: You are FORBIDDEN from marking a supplier as 'verified' unless you have physically "
+            "matched the provided Entity ID with a search result from a reliable source."
         )
 
     async def verify_supplier(self, name: str, entity_id: str):
         prompt = (
-            f"You are investigating '{name}' (Entity ID: {entity_id}).\n"
-            "STEP 1: Use your tools to find their registration and latest news.\n"
-            "STEP 2: Analyze all results for fraud, red flags, or bankruptcies.\n"
-            "STEP 3: Compare your findings with the provided Entity ID.\n\n"
-            "FINAL REQUIREMENT: Output your result as a JSON OBJECT containing:\n"
+            f"AUDIT TARGET: '{name}' | CLAIMED ID: '{entity_id}'\n"
+            "MISSION: Detect if this is a legitimate entity or an 'Identity Impersonator' using a fake ID.\n"
+            "STEP 1: Search for the target and its official registration ID.\n"
+            "STEP 2: Compare the found registration ID with the CLAIMED ID provided above.\n"
+            "STEP 3: Check for news of fraud, litigation, or bankruptcy.\n\n"
+            "JSON OUTPUT FORMAT:\n"
             "- status: 'verified', 'flagged', or 'fraud'\n"
             "- risk_score: 0.0 to 1.0\n"
             "- confidence_score: 0 to 100\n"
-            "- summary: A detailed analysis (min 3 sentences)\n"
-            "- sources: List of {url, title, date} used for your verdict."
+            "- summary: Detailed reasoning grounded EXCLUSIVELY in search results.\n"
+            "- sources: Mandatory list of {url, title, date} used as evidence."
         )
 
         # Gemini will automatically call the synchronous tools in Tools list
