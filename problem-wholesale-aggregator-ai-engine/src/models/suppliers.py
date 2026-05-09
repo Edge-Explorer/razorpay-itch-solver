@@ -6,7 +6,7 @@ class Supplier(Base, TimestampMixin):
     __tablename__= "suppliers"
 
     id: Mapped[int]= mapped_column(primary_key= True)
-    supplier_id: Mapped[str]= mapped_column(String(225), index= True)
+    name: Mapped[str]= mapped_column(String(225), index= True)
     contact_email: Mapped[str]= mapped_column(String(255))
 
     # We can link this back to your first project's "Verification Status" later!
