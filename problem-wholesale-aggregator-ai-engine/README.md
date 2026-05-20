@@ -252,14 +252,16 @@ problem-wholesale-aggregator-ai-engine/
 |   |   +-- embeddings.py        # Gemini embedding generation, pgvector similarity search
 |   |
 |   +-- models/
-|   |   +-- base.py              # SQLAlchemy declarative base
-|   |   +-- orders.py            # OrderPool, Intent, OrderLine models
+|   |   +-- base.py              # SQLAlchemy declarative base, TimestampMixin
+|   |   +-- orders.py            # OrderPool, Intent models, PoolStatus state enum
 |   |   +-- suppliers.py         # Supplier, Product, CatalogEntry models
+|   |   +-- disputes.py          # Dispute model, DisputeStatus, DisputeSeverity enums
 |   |
 |   +-- agents/
 |   |   +-- normalizer.py        # Gemini agent for semantic product matching
 |   |   +-- predictor.py         # Gemini agent for cold-start area density prediction
-|   |   +-- tools.py             # Tavily search tool, synchronous httpx implementation
+|   |   +-- tools.py             # Tavily search tool, async httpx implementation
+|   |   +-- qa_analyzer.py       # QA AI Agent: three-way dispute triage (Buyer/Supplier/Logistics)
 |   |
 |   +-- config/
 |   |   +-- settings.py          # Pydantic Settings, fail-fast environment validation
@@ -343,10 +345,12 @@ uv run celery -A src.workers.celery_app.worker_app worker --loglevel=info -P sol
 
 | Variable | Description | Required |
 |---|---|---|
-| `GOOGLE_API_KEY` | Gemini 2.0 Flash API key | Yes |
+| `GEMINI_API_KEY` | Gemini 2.0 Flash API key | Yes |
 | `TAVILY_API_KEY` | Tavily search API key | Yes |
 | `DATABASE_URL` | Neon Postgres connection string with `+asyncpg` dialect prefix | Yes |
 | `REDIS_URL` | Redis connection string | Yes |
+| `CELERY_BROKER_URL` | Celery broker URL (defaults to Redis) | No |
+| `CELERY_RESULT_BACKEND` | Celery result backend URL (defaults to Redis) | No |
 
 ---
 
@@ -355,23 +359,55 @@ uv run celery -A src.workers.celery_app.worker_app worker --loglevel=info -P sol
 | Phase | Component | Status |
 |---|---|---|
 | 1 | Pydantic Settings — fail-fast environment validation | Complete |
-| 2 | Async DB Service — SQLAlchemy, asyncpg, connection pooling | Planned |
-| 3 | Async Redis Service — singleton, Pub/Sub helpers | Planned |
-| 4 | Product and Order Models | Planned |
+| 2 | Async DB Service — SQLAlchemy, asyncpg, connection pooling | Complete |
+| 3 | Async Redis Service — singleton, atomic float increment, Pub/Sub helpers | Complete |
+| 4 | Product, Order, and Dispute Models | Complete |
 | 5 | Alembic Migrations — async bridge, schema on Neon | Planned |
-| 6 | Gemini Embedding Service + pgvector similarity search | Planned |
-| 7 | Semantic Normaliser Agent | Planned |
-| 8 | Cold-Start Predictor Agent | Planned |
-| 9 | Celery Worker Configuration | Planned |
-| 10 | Background Tasks — normalise, predict, order dispatch | Planned |
-| 11 | Redlock Distributed Locking | Planned |
-| 12 | FastAPI Routes — POST /intent, GET /pool, WS /pool/stream | Planned |
-| 13 | WebSocket broadcast via Redis Pub/Sub | Planned |
-| 14 | Order State Machine | Planned |
-| 15 | Adapter Layer — Logistics and Payment mocks | Planned |
-| 16 | Nginx Config — round-robin, WebSocket headers, health checks | Planned |
-| 17 | Docker Compose — multi-replica stack | Planned |
-| 18 | Concurrency and Semantic Tests | Planned |
+| 6 | Gemini Embedding Service + pgvector similarity search | Complete |
+| 7 | Semantic Normaliser Agent | Complete |
+| 8 | Cold-Start Predictor Agent | Complete |
+| 9 | Celery Worker Configuration — late acks, prefetch control | Complete |
+| 10 | Background Tasks — pool dispatch, payment capture, logistics booking | Complete |
+| 11 | Redlock Distributed Locking — wired into intent submission endpoint | Complete |
+| 12 | FastAPI Routes — POST /intents, POST /disputes | Complete |
+| 13 | Dispute QA System — AI three-way triage, automated refund events | Complete |
+| 14 | WebSocket broadcast via Redis Pub/Sub | Planned |
+| 15 | Order State Machine — OPEN → SOFT_LOCK → FULFILLED | Complete |
+| 16 | Adapter Layer — LogisticsProvider ABC, PaymentProvider ABC, Mock implementations | Complete |
+| 17 | Nginx Config — round-robin, WebSocket headers, health checks | Planned |
+| 18 | Docker Compose — multi-replica stack | Planned |
+| 19 | Mock Unit Test Suite — Normalizer and QA Agent | Complete |
+| 20 | Concurrency Load Tests — Redlock under concurrent MOQ breach | Planned |
+
+---
+
+## Quality Assurance & Dispute Resolution System
+
+This system implements a **Three-Way Liability Arbitration** model to handle product quality disputes after delivery. This solves the "last-mile contamination" problem, where a supplier ships clean goods but the transporter damages them in transit, causing an unfair penalty to the supplier's trust rating.
+
+### The Chain of Custody
+
+Every delivery has three evidence checkpoints:
+
+1. **Pickup Handshake (Supplier → Transporter)**: The driver photographs the goods at the warehouse. The supplier signs off. Liability shifts to the transporter.
+2. **Dropoff Handshake (Transporter → Restaurant)**: The restaurant inspects and photographs the goods upon arrival. If damage is visible, the transporter is flagged before the restaurant accepts.
+3. **Post-Delivery Dispute (Restaurant)**: If internal spoilage (mold, contamination) is found after opening the bags, the restaurant files a dispute with a description and photo evidence.
+
+### The AI Triage Logic
+
+When a dispute is filed at `POST /api/v1/disputes`, the **QA AI Agent** (`src/agents/qa_analyzer.py`) receives all three evidence notes and classifies the liability:
+
+| Scenario | Classification | Outcome |
+|---|---|---|
+| Goods sealed at pickup, damaged at dropoff | `LOGISTICS_FAULT` | Full refund to restaurant, supplier trust unchanged |
+| Packaging intact but product internally spoiled | `RESOLVED_IN_FAVOR_OF_BUYER` | Refund issued, supplier trust rating decays |
+| Restaurant claims damage, both notes verify perfect delivery | `RESOLVED_IN_FAVOR_OF_SUPPLIER` | No refund, buyer trust rating flagged |
+
+### Supplier Trust Recovery
+
+A supplier's trust score decays on verified faults but recovers automatically:
+- Each successfully fulfilled pool with zero disputes increments the trust score by `+0.02`.
+- A manual audit submission (new quality certificate, warehouse photos) allows platform admins to restore a suspended supplier to probation status (`0.80`).
 
 ---
 
