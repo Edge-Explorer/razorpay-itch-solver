@@ -1,4 +1,4 @@
-import pytest
+import pytest # type: ignore[import]
 from unittest.mock import AsyncMock, patch
 from src.agents.normalizer import NormalizerAgent, NormalizedProduct
 from src.agents.qa_analyzer import QAAgent, DisputeAnalysis
