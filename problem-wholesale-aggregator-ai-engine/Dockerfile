@@ -1,7 +1,8 @@
 # Build the virtual environment using uv
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
-# WORKDIR/ app
+WORKDIR /app
+
 # Enable bytecode compilation for faster execution
 ENV UV_COMPILE_BYTECODE=1
 
