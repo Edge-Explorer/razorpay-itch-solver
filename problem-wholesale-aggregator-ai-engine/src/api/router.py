@@ -118,6 +118,20 @@ async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_s
                 "status": pool.status.value,
                 "target": pool.target_quantity
             })
+
+            # 9. Broadcast live update to WebSockets
+            await redis_service.publish(
+                f"pool_broadcast:{pool.id}",
+                {
+                    "pool_id": pool.id,
+                    "product_name": pool.product_name,
+                    "current_quantity": pool.current_quantity,
+                    "target_quantity": pool.target_quantity,
+                    "status": pool.status.value,
+                    "progress_pct": (pool.current_quantity / pool.target_quantity) * 100 if pool.target_quantity else 0,
+                    "message": f"New intent added: {request.quantity} kg of {normalized.canonical_name}."
+                }
+            )
             
             return {
                 "status": "success",

@@ -3,6 +3,7 @@ from typing import List
 from celery import shared_task
 from src.workers.celery_app import worker_app
 from src.services.db import async_session
+from src.services.redis import redis_service
 from src.utils.concurrency import distributed_lock
 from src.utils.adapters import WalletMockProvider, PorterMockProvider
 from src.models.orders import OrderPool, PoolStatus
@@ -10,8 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 # Instantiate our Provider Adapters
-payment_service= WalletMockProvider()
-logistics_service= PorterMockProvider()
+payment_service = WalletMockProvider()
+logistics_service = PorterMockProvider()
 
 # Helper to run async code inside Celery's synchronous worker threads
 def run_async(coro):
@@ -30,56 +31,94 @@ async def _process_pool_dispatch_async(pool_id: int) -> dict:
     async with distributed_lock(f"dispatch:pool:{pool_id}", lease_time_ms=30000):
         async with async_session() as db:
             # 2. Fetch the pool and load all its linked intents
-            query=(
+            query = (
                 select(OrderPool)
-                .where(OrderPool.id==pool_id)
+                .where(OrderPool.id == pool_id)
                 .options(selectinload(OrderPool.intents))
             )
-            results= await db.execute(query)
-            pool= results.scalar_one_or_none()
+            results = await db.execute(query)
+            pool = results.scalar_one_or_none()
 
             if not pool:
                 return {"status": "failed", "reason": "Pool not found"}
-            if pool.status!= PoolStatus.DRAFT:
-                return {"status": "skipped", "reason": f"Pool already in {pool.status.value} status"}
+            if pool.status != PoolStatus.SOFT_LOCK:
+                return {"status": "skipped", "reason": f"Pool is in {pool.status.value} status, not SOFT_LOCK"}
 
             # 3. Transition status to prevent any incoming updates
-            pool.status= PoolStatus.LOCKED
+            pool.status = PoolStatus.HARD_LOCK
             await db.commit()
 
-            print(f"Pool {pool_id} successfully locked. Begning settlement pipeline...")
+            print(f"Pool {pool_id} successfully locked. Beginning settlement pipeline...")
+            
+            # Broadcast state update to WebSockets
+            await redis_service.publish(
+                f"pool_broadcast:{pool.id}",
+                {
+                    "pool_id": pool.id,
+                    "status": pool.status.value,
+                    "current_quantity": pool.current_quantity,
+                    "target_quantity": pool.target_quantity,
+                    "message": "Pool locked. Processing payment captures..."
+                }
+            )
 
             # 4. Charge restaurants concurrently
-            payment_tasks=[]
+            payment_tasks = []
             for intent in pool.intents:
-                charge_amount= intent.quantity * intent.price_limit
+                charge_amount = intent.quantity * intent.price_limit
                 payment_tasks.append(
                     payment_service.capture_payment(intent.restaurant_id, charge_amount)
                 )
-            payment_results= await asyncio.gather(*payment_tasks, return_exceptions=True)
+            payment_results = await asyncio.gather(*payment_tasks, return_exceptions=True)
 
             # Verify payments
             for res in payment_results:
-                if isinstance(res, Exception) or res.get("status")!= "captured":
-                    pool.status= PoolStatus.DRAFT
+                if isinstance(res, Exception) or res.get("status") != "captured":
+                    pool.status = PoolStatus.OPEN
                     await db.commit()
-                    return{"status": "failed", "reason": "Payment capture failed for one or more restaurants."}
+                    
+                    await redis_service.publish(
+                        f"pool_broadcast:{pool.id}",
+                        {
+                            "pool_id": pool.id,
+                            "status": pool.status.value,
+                            "current_quantity": pool.current_quantity,
+                            "target_quantity": pool.target_quantity,
+                            "message": "Payment capture failed. Reopening pool."
+                        }
+                    )
+                    return {"status": "failed", "reason": "Payment capture failed for one or more restaurants."}
 
             # 5. Book Logistics
-            total_weight= sum(intent.quantity for intent in pool.intents)
+            total_weight = sum(intent.quantity for intent in pool.intents)
             # Call Porter Adapter to get Quote & Book delivery
-            quote= await logistics_service.get_delivery_quote(
-                origin= "Wholesale Central Warehouse, Navi Mumbai",
-                destination= f"ZIP Area Cluster {pool_id}", # Destination cluster
-                weight_kg= total_weight
+            quote = await logistics_service.get_delivery_quote(
+                origin="Wholesale Central Warehouse, Navi Mumbai",
+                destination=f"ZIP Area Cluster {pool.zip_code}", # Destination cluster based on zip code
+                weight_kg=total_weight
             )
 
-            booking= await logistics_service.book_delivery(quote["quote_id"])
+            booking = await logistics_service.book_delivery(quote["quote_id"])
 
             # 6. Complete Transition
-            pool.status= PoolStatus.FULFILLED
+            pool.status = PoolStatus.FULFILLED
             await db.commit()
             print(f"Pool {pool_id} fully settled & dispatched! Porter Booking: {booking['booking_id']}")
+
+            # Broadcast success update
+            await redis_service.publish(
+                f"pool_broadcast:{pool.id}",
+                {
+                    "pool_id": pool.id,
+                    "status": pool.status.value,
+                    "current_quantity": pool.current_quantity,
+                    "target_quantity": pool.target_quantity,
+                    "driver_name": booking["driver_name"],
+                    "eta_minutes": booking["eta_minutes"],
+                    "tracking_id": booking["tracking_id"],
+                    "message": "Order fulfilled! Logistics booked."
+                }
+            )
 
             return {
                 "status": "success",

@@ -4,10 +4,11 @@ from typing import AsyncGenerator
 
 # Create the Async Engine
 engine= create_async_engine(
-    settings.DATABASE_URL,
+    settings.async_database_url,
     echo= settings.DEBUG, # allows us to see the SQL queries in the console during development
     future= True,
     pool_pre_ping= True,
+    connect_args={"ssl": True}
 )
 
 # Create a Session Factory
@@ -25,3 +26,6 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+
+# Context manager session alias for background workers
+async_session = AsyncSessionLocal
