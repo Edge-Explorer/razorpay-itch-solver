@@ -15,6 +15,11 @@ from src.workers.tasks import process_pool_dispatch
 from pydantic import BaseModel
 import json
 from src.agents.normalizer import NormalizedProduct
+from fastapi import File, Form, UploadFile   # type: ignore[import]
+from src.services.cloudinary import cloudinary_service
+from src.agents.verifier import document_verifier_agent
+from src.models.suppliers import Supplier, VerificationStatus
+import asyncio
 
 
 router= APIRouter(prefix= "/api/v1", tags=["Aggregator"])
@@ -225,3 +230,104 @@ async def submit_dispute(request: DisputeRequest, db: AsyncSession= Depends(get_
         },
         "refund_status": refund_status
     }
+
+# ==========================================
+# 3. SUPPLIER REGISTRATION ENDPOINT (OCR + CDN)
+# ==========================================
+@router.post("/suppliers/register")
+async def register_supplier(name: str= Form(...), contact_email: str= Form(...), pan_number: str= Form(...), aadhar_number: str= Form(...), pan_image: UploadFile= File(...), aadhar_image: UploadFile= File(...), db: AsyncSession= Depends(get_session)):
+    """
+    Registers a wholesale supplier, uploads their identity documents (PAN & Aadhaar) 
+    to Cloudinary CDN, runs multimodal Gemini OCR verification, and saves the outcome.
+    """
+    # 1. Read uploaded image streams into memory bytes
+    try:
+        pan_bytes= await pan_image.read()
+        aadhar_bytes= await aadhar_image.read()
+    except Exception as e:
+        raise HTTPException(status_code= 400, detail= f"Failed to read image files: {str(e)}")
+    
+    # 2. Upload both documents to Cloudinary concurrently
+    try:
+        pan_upload_task= cloudinary_service.upload_image(pan_bytes, folder= "pan_documents")
+        aadhar_upload_task= cloudinary_service.upload_image(aadhar_bytes, folder= "aadhar_documents")
+        pan_url, aadhar_url= await asyncio.gather(pan_upload_task, aadhar_upload_task)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail= f"Failed to upload documents to Cloudinary CDN: str{str(e)}")
+    
+    # 3. Trigger Gemini Multimodal OCR verification for both documents concurrently
+    try:
+        pan_verify_task= document_verifier_agent.verify_document(image_bytes= pan_bytes, mime_type= pan_image.content_type or "image/jpeg", doc_type= "PAN", expected_name= name, expected_number= pan_number)
+        aadhar_verify_task= document_verifier_agent.verify_document(image_bytes= aadhar_bytes, mime_type= aadhar_image.content_type or "image/jpeg", doc_type= "Aadhar", expected_name= name, expected_number= aadhar_number)
+        pan_result, aadhar_result= await asyncio.gather(pan_verify_task, aadhar_verify_task)
+    except Exception as e:
+        raise HTTPException(status_code= 500, detail= f"AI document verification failure: str: {str(e)}")
+    
+    # 4. Decide final verification outcome based on both OCR checks
+    is_verified= (pan_result.is_authentic and pan_result.fields_match and aadhar_result.is_authentic and aadhar_result.fields_match)
+    status= VerificationStatus.VERIFIED if is_verified else VerificationStatus.REJECTED
+    
+    audit_notes= (f"PAN Verification: [Authentic={pan_result.is_authentic}, Match={pan_result.fields_match}]. Reasoning:{pan_result.reasoning} |" f"Aadhar Verification: [Authentic= {aadhar_result.is_authentic}, Match= {aadhar_result.fields_match}]. Reasoning:{aadhar_result.reasoning}")
+    
+    # 5. Persist the Supplier to Neon Postgres
+    new_supplier= Supplier(
+        name= name,
+        contact_email= contact_email,
+        pan_number= pan_number,
+        aadhar_number= aadhar_number,
+        pan_image_url=pan_url,
+        aadhar_image_url=aadhar_url,
+        verification_status=status,
+        verification_comments=audit_notes[:500],  # database column size safety limit
+        is_verified=is_verified
+    )
+    db.add(new_supplier)
+    await db.commit()
+    await db.refresh(new_supplier)
+    
+    return {
+        "status": "processed",
+        "supplier_id": new_supplier.id,
+        "verification_status": status.value,
+        "is_verified": is_verified,
+        "audit_notes": audit_notes,
+        "cloudinary_urls": {
+            "pan_url": pan_url,
+            "aadhar_url": aadhar_url
+        }
+    }
+    
+# ==========================================
+# 4. SUPPLIER STATUS VERIFICATION CHECK
+# ==========================================
+@router.get("/suppliers/{supplier_id}/status")
+async def get_supplier_status(supplier_id: int, db: AsyncSession= Depends(get_session)):
+    """Queries details and verification audit trail of a registered supplier."""
+    query= select(Supplier).where(Supplier.id == supplier_id)
+    result= await db.execute(query)
+    supplier= result.scalar_one_or_none()
+    
+    if not supplier:
+        raise HTTPException(status_code= 404, detail= "Supplier not found")
+    
+    return {
+        "supplier_id": supplier.id,
+        "name": supplier.name,
+        "contact_email": supplier.contact_email,
+        "verification_status": supplier.verification_status.value,
+        "is_verified": supplier.is_verified,
+        "verification_comments": supplier.verification_comments,
+        "pan_image_url": supplier.pan_image_url,
+        "aadhar_image_url": supplier.aadhar_image_url
+    }
+
+# ==========================================
+# 5. LIST ORDER POOLS (For System Dashboard)
+# ==========================================
+@router.get("/pools")
+async def list_pools(db: AsyncSession= Depends(get_session)):
+    """Returns a list of all active/fulfilled/failed order pools in the system."""
+    query= select(OrderPool)
+    result= await db.execute(query)
+    pools= result.scalars().all()
+    return pools
