@@ -13,6 +13,8 @@ from src.utils.concurrency import distributed_lock, DistributedLockError
 from src.utils.adapters import WalletMockProvider
 from src.workers.tasks import process_pool_dispatch
 from pydantic import BaseModel
+import json
+from src.agents.normalizer import NormalizedProduct
 
 
 router= APIRouter(prefix= "/api/v1", tags=["Aggregator"])
@@ -39,9 +41,24 @@ class DisputeRequest(BaseModel):
 # ==========================================
 @router.post("/intents")
 async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_session)):
-    # 1. AI Normalization (Turn 'Atta' -> 'wheat_flour')
-    normalized = await normalizer_agent.normalize(request.raw_product_name)
-
+    # 1. Check Redis Cache for AI Normalization first
+    raw_name_key = request.raw_product_name.lower().strip()
+    cache_key = f"normalized_product:{raw_name_key}"
+    
+    try:
+        cached_norm = await redis_service.get(cache_key)
+        if cached_norm:
+            normalized_data = json.loads(cached_norm)
+            normalized = NormalizedProduct(**normalized_data)
+            print(f"[CACHE HIT] Normalization for '{request.raw_product_name}' -> '{normalized.canonical_name}' fetched from Redis.")
+        else:
+            normalized = await normalizer_agent.normalize(request.raw_product_name)
+            # Cache for 7 days (604800 seconds)
+            await redis_service.set(cache_key, normalized.model_dump(), ex=604800)
+            print(f"[CACHE MISS] Normalization for '{request.raw_product_name}' -> '{normalized.canonical_name}' fetched from Gemini and Cached.")
+    except Exception as e:
+        print(f"Warning: Cache failed or bypassed for Normalization: {e}")
+        normalized = await normalizer_agent.normalize(request.raw_product_name)
     # 2. Redis Key for the Pool
     pool_key = f"pool:{normalized.canonical_id}:{request.zip_code}"
     
@@ -58,7 +75,7 @@ async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_s
                 )
             )
             result = await db.execute(query)
-            pool = result.scalar_one_or_none() # Fixed typo here (singular 'scalar')
+            pool = result.scalar_one_or_none()
             
             # 5. Initialize new pool if none exists
             prediction = None
@@ -91,7 +108,7 @@ async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_s
                     "canonical_name": normalized.canonical_name
                 })
                 
-            # 6. Create the Intent and update pool quantity (UN-INDENTED to run for all cases)
+            # 6. Create the Intent and update pool quantity
             new_intent = Intent(
                 pool_id=pool.id,
                 restaurant_id=request.restaurant_id,
@@ -118,7 +135,6 @@ async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_s
                 "status": pool.status.value,
                 "target": pool.target_quantity
             })
-
             # 9. Broadcast live update to WebSockets
             await redis_service.publish(
                 f"pool_broadcast:{pool.id}",
@@ -142,13 +158,11 @@ async def submit_intent(request: IntentRequest, db: AsyncSession = Depends(get_s
                 "dispatched": dispatched,
                 "prediction": prediction if prediction else "Already aggregating"
             }
-
     except DistributedLockError:
         raise HTTPException(
             status_code=423,
             detail="Resource locked. Another intent for this pool is currently being processed."
         )
-        
 # ==========================================
 # 2. DISPUTE TRIAGING ENDPOINT (QA AI Agent)
 # ==========================================
