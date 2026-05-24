@@ -1,5 +1,5 @@
-import pytest
-from fastapi.testclient import TestClient
+import pytest    # type: ignore
+from fastapi.testclient import TestClient   # type: ignore
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.api.main import app
 from src.models.orders import OrderPool, PoolStatus
