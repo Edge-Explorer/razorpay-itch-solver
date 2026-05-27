@@ -382,6 +382,128 @@
             color: var(--text-muted);
             line-height: 1.4;
         }
+
+        /* Tab Switcher */
+        .tab-switcher {
+            display: flex;
+            background: rgba(10, 12, 16, 0.6);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 0.3rem;
+            gap: 0.3rem;
+            margin-bottom: 1rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.6rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--primary);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
+        }
+
+        .tab-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        
+        .tab-content.hidden {
+            display: none;
+        }
+
+        /* Supplier Document Previews */
+        .document-preview-card {
+            background: rgba(10, 12, 16, 0.5);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            border-left: 3px solid var(--primary);
+        }
+
+        .document-preview-card a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .document-preview-card a:hover {
+            text-decoration: underline;
+        }
+
+        .document-preview-card img {
+            width: 100%;
+            max-height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 0.2rem;
+        }
+
+        /* Dropzone / Upload Fields */
+        .file-upload-wrapper {
+            position: relative;
+            margin-top: 0.2rem;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: rgba(10, 12, 16, 0.6);
+            border: 1px dashed var(--card-border);
+            color: var(--text-muted);
+            padding: 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+        }
+
+        .file-upload-label:hover {
+            border-color: var(--primary);
+            color: var(--text-main);
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-name-indicator {
+            font-size: 0.75rem;
+            color: var(--success);
+            margin-top: 0.3rem;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -401,67 +523,150 @@
         <!-- Left Column: Sidebar Controls -->
         <div class="sidebar">
             
-            <!-- Submit Procurement Intent Form -->
-            <div class="panel">
-                <div class="panel-title">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                    Submit Procurement Intent
-                </div>
-                <form id="intent-form">
-                    <div class="form-group">
-                        <label for="restaurant_id">Restaurant ID</label>
-                        <input type="text" id="restaurant_id" class="form-control" value="rest_royal_palace" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="raw_product_name">Product Name (Raw input)</label>
-                        <input type="text" id="raw_product_name" class="form-control" placeholder="e.g. Chakki Atta, Basmati Rice" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="quantity">Quantity (KG)</label>
-                        <input type="number" id="quantity" class="form-control" value="25" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="zip_code">ZIP Code</label>
-                        <input type="text" id="zip_code" class="form-control" value="400001" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="price_limit">Price Limit (per KG)</label>
-                        <input type="number" id="price_limit" class="form-control" value="65" min="1" required>
-                    </div>
-                    <button type="submit" class="btn">Submit to Pool</button>
-                </form>
+            <!-- Sidebar Tab Switcher -->
+            <div class="tab-switcher">
+                <button type="button" class="tab-btn active" id="client-tab-btn" onclick="switchTab('client')">Client Portal</button>
+                <button type="button" class="tab-btn" id="supplier-tab-btn" onclick="switchTab('supplier')">Supplier Hub</button>
             </div>
 
-            <!-- AI Dispute Triaging Console -->
-            <div class="panel">
-                <div class="panel-title">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
-                    AI Dispute Triage
+            <!-- Client Portal Tab Content -->
+            <div id="client-tab" class="tab-content">
+                <!-- Submit Procurement Intent Form -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                        Submit Procurement Intent
+                    </div>
+                    <form id="intent-form">
+                        <div class="form-group">
+                            <label for="restaurant_id">Restaurant ID</label>
+                            <input type="text" id="restaurant_id" class="form-control" value="rest_royal_palace" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="raw_product_name">Product Name (Raw input)</label>
+                            <input type="text" id="raw_product_name" class="form-control" placeholder="e.g. Chakki Atta, Basmati Rice" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="quantity">Quantity (KG)</label>
+                            <input type="number" id="quantity" class="form-control" value="25" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="zip_code">ZIP Code</label>
+                            <input type="text" id="zip_code" class="form-control" value="400001" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="price_limit">Price Limit (per KG)</label>
+                            <input type="number" id="price_limit" class="form-control" value="65" min="1" required>
+                        </div>
+                        <button type="submit" class="btn">Submit to Pool</button>
+                    </form>
                 </div>
-                <form id="dispute-form">
-                    <div class="form-group">
-                        <label for="dispute_pool_id">Pool ID</label>
-                        <input type="number" id="dispute_pool_id" class="form-control" placeholder="e.g. 1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="dispute_desc">What went wrong?</label>
-                        <input type="text" id="dispute_desc" class="form-control" placeholder="e.g. Rice bags arrived wet" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="pickup_notes">Transporter Pickup Notes</label>
-                        <input type="text" id="pickup_notes" class="form-control" value="Loaded 10 dry bags onto truck. All sealed." required>
-                    </div>
-                    <div class="form-group">
-                        <label for="dropoff_notes">Dropoff Handover Notes</label>
-                        <input type="text" id="dropoff_notes" class="form-control" value="Delivered in heavy rain. Unloaded outside without cover." required>
-                    </div>
-                    <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%);">Run AI Triage</button>
-                </form>
 
-                <!-- Dispute Triage Output -->
-                <div class="analysis-result" id="triage-result">
-                    <div class="analysis-title" id="triage-status">Triage: LOGISTICS FAULT</div>
-                    <div class="analysis-notes" id="triage-notes">Analyzing...</div>
+                <!-- AI Dispute Triaging Console -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+                        AI Dispute Triage
+                    </div>
+                    <form id="dispute-form">
+                        <div class="form-group">
+                            <label for="dispute_pool_id">Pool ID</label>
+                            <input type="number" id="dispute_pool_id" class="form-control" placeholder="e.g. 1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dispute_desc">What went wrong?</label>
+                            <input type="text" id="dispute_desc" class="form-control" placeholder="e.g. Rice bags arrived wet" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pickup_notes">Transporter Pickup Notes</label>
+                            <input type="text" id="pickup_notes" class="form-control" value="Loaded 10 dry bags onto truck. All sealed." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dropoff_notes">Dropoff Handover Notes</label>
+                            <input type="text" id="dropoff_notes" class="form-control" value="Delivered in heavy rain. Unloaded outside without cover." required>
+                        </div>
+                        <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%);">Run AI Triage</button>
+                    </form>
+
+                    <!-- Dispute Triage Output -->
+                    <div class="analysis-result" id="triage-result">
+                        <div class="analysis-title" id="triage-status">Triage: LOGISTICS FAULT</div>
+                        <div class="analysis-notes" id="triage-notes">Analyzing...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Supplier Hub Tab Content -->
+            <div id="supplier-tab" class="tab-content hidden">
+                <!-- Register Supplier Form -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+                        Supplier Registration
+                    </div>
+                    <form id="supplier-register-form" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="sup_name">Supplier Name</label>
+                            <input type="text" id="sup_name" name="name" class="form-control" placeholder="e.g. Quality Foods Ltd" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="sup_email">Contact Email</label>
+                            <input type="email" id="sup_email" name="contact_email" class="form-control" placeholder="e.g. supplier@qualityfoods.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pan_number">PAN Card Number</label>
+                            <input type="text" id="pan_number" name="pan_number" class="form-control" placeholder="10-digit PAN (e.g. ABCDE1234F)" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}" title="Please enter a valid 10-character PAN number" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="aadhar_number">Aadhaar Card Number</label>
+                            <input type="text" id="aadhar_number" name="aadhar_number" class="form-control" placeholder="12-digit Aadhaar number" pattern="[0-9]{12}" title="Please enter a valid 12-digit Aadhaar number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>PAN Card Image</label>
+                            <div class="file-upload-wrapper">
+                                <div class="file-upload-label">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                    <span>Choose file...</span>
+                                </div>
+                                <input type="file" id="pan_image" name="pan_image" class="file-input" accept="image/*" required>
+                            </div>
+                            <div id="pan_filename_indicator" class="file-name-indicator">Selected: None</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Aadhaar Card Image</label>
+                            <div class="file-upload-wrapper">
+                                <div class="file-upload-label">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                    <span>Choose file...</span>
+                                </div>
+                                <input type="file" id="aadhar_image" name="aadhar_image" class="file-input" accept="image/*" required>
+                            </div>
+                            <div id="aadhar_filename_indicator" class="file-name-indicator">Selected: None</div>
+                        </div>
+                        <button type="submit" class="btn">Register & AI Verify</button>
+                    </form>
+                </div>
+
+                <!-- Supplier Verification Status Check -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                        Check Status & Audit Trail
+                    </div>
+                    <form id="supplier-status-form">
+                        <div class="form-group">
+                            <label for="search_supplier_id">Supplier ID</label>
+                            <input type="number" id="search_supplier_id" class="form-control" placeholder="e.g. 1" required>
+                        </div>
+                        <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--success) 0%, #047857 100%);">Fetch Status & Audit</button>
+                    </form>
+
+                    <!-- Supplier Query Status Output -->
+                    <div class="analysis-result" id="supplier-status-result">
+                        <div class="analysis-title" id="sup-status-badge">Verification: PENDING</div>
+                        <div class="analysis-notes" id="sup-status-details">No query executed yet.</div>
+                        <div id="sup-document-previews" style="margin-top: 0.8rem; display: flex; gap: 0.8rem; flex-direction: column;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -731,6 +936,189 @@
                 notesText.innerText = `API communication failed: ${err}`;
             }
         };
+
+        // Tab switching function
+        function switchTab(tab) {
+            const clientTab = document.getElementById("client-tab");
+            const supplierTab = document.getElementById("supplier-tab");
+            const clientBtn = document.getElementById("client-tab-btn");
+            const supplierBtn = document.getElementById("supplier-tab-btn");
+
+            if (tab === "client") {
+                clientTab.classList.remove("hidden");
+                supplierTab.classList.add("hidden");
+                clientBtn.classList.add("active");
+                supplierBtn.classList.remove("active");
+                logToConsole("UI", "Switched to Client Portal dashboard.");
+            } else {
+                clientTab.classList.add("hidden");
+                supplierTab.classList.remove("hidden");
+                clientBtn.classList.remove("active");
+                supplierBtn.classList.add("active");
+                logToConsole("UI", "Switched to Supplier Hub dashboard.");
+            }
+        }
+
+        // Update filename labels on select
+        document.getElementById("pan_image").onchange = function() {
+            const indicator = document.getElementById("pan_filename_indicator");
+            if (this.files && this.files.length > 0) {
+                indicator.innerText = `Selected: ${this.files[0].name}`;
+                indicator.style.display = "block";
+            } else {
+                indicator.style.display = "none";
+            }
+        };
+
+        document.getElementById("aadhar_image").onchange = function() {
+            const indicator = document.getElementById("aadhar_filename_indicator");
+            if (this.files && this.files.length > 0) {
+                indicator.innerText = `Selected: ${this.files[0].name}`;
+                indicator.style.display = "block";
+            } else {
+                indicator.style.display = "none";
+            }
+        };
+
+        // Supplier registration form submit handler
+        document.getElementById("supplier-register-form").onsubmit = async function(e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+
+            logToConsole("SUPPLIER", "Initiating supplier registration with identity documents...");
+            
+            const submitBtn = form.querySelector("button[type='submit']");
+            const originalBtnText = submitBtn.innerText;
+            submitBtn.innerText = "Registering & Verifying...";
+            submitBtn.disabled = true;
+
+            try {
+                const res = await fetch("/api/v1/suppliers/register", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Server verification error");
+                }
+
+                const data = await res.json();
+                
+                logToConsole("SUPPLIER REGISTERED", `ID: ${data.supplier_id} | Status: ${data.verification_status.toUpperCase()}`);
+                
+                if (data.is_verified) {
+                    logToConsole("VERIFICATION SUCCESS", `Identity verified by Gemini Multimodal OCR.`);
+                } else {
+                    logToConsole("VERIFICATION FAILED", `Documents rejected. Details in status lookup.`);
+                }
+
+                // Show status lookup right away for the new supplier
+                document.getElementById("search_supplier_id").value = data.supplier_id;
+                fetchSupplierStatus(data.supplier_id);
+                
+                // Clear files
+                form.reset();
+                document.getElementById("pan_filename_indicator").style.display = "none";
+                document.getElementById("aadhar_filename_indicator").style.display = "none";
+
+            } catch (err) {
+                logToConsole("ERROR", `Supplier registration failed: ${err.message}`);
+                alert(`Error: ${err.message}`);
+            } finally {
+                submitBtn.innerText = originalBtnText;
+                submitBtn.disabled = false;
+            }
+        };
+
+        // Supplier status lookup submit handler
+        document.getElementById("supplier-status-form").onsubmit = function(e) {
+            e.preventDefault();
+            const supplierId = parseInt(document.getElementById("search_supplier_id").value);
+            fetchSupplierStatus(supplierId);
+        };
+
+        async function fetchSupplierStatus(supplierId) {
+            const resultBox = document.getElementById("supplier-status-result");
+            const statusBadge = document.getElementById("sup-status-badge");
+            const detailsText = document.getElementById("sup-status-details");
+            const previewContainer = document.getElementById("sup-document-previews");
+
+            resultBox.style.display = "block";
+            statusBadge.className = "analysis-title";
+            statusBadge.innerText = "STATUS: FETCHING...";
+            detailsText.innerText = "Querying database...";
+            previewContainer.innerHTML = "";
+
+            logToConsole("SUPPLIER STATUS", `Fetching status for supplier ID #${supplierId}...`);
+
+            try {
+                const res = await fetch(`/api/v1/suppliers/${supplierId}/status`);
+                if (!res.ok) {
+                    throw new Error("Supplier ID not found in database.");
+                }
+
+                const data = await res.json();
+                
+                // Update badge color
+                const status = data.verification_status; // "verified", "rejected", "pending"
+                statusBadge.innerText = `STATUS: ${status.toUpperCase()}`;
+                
+                if (status === "verified") {
+                    statusBadge.style.color = "var(--success)";
+                } else if (status === "rejected") {
+                    statusBadge.style.color = "var(--danger)";
+                } else {
+                    statusBadge.style.color = "var(--warning)";
+                }
+
+                // Format details
+                let commentsHtml = `
+                    <strong>Name:</strong> ${data.name}<br>
+                    <strong>Email:</strong> ${data.contact_email}<br>
+                    <strong>Verified:</strong> ${data.is_verified ? "YES" : "NO"}<br>
+                    <strong>Audit Trail:</strong><br>
+                    <div style="background: rgba(0,0,0,0.3); padding: 0.5rem; border-radius: 6px; margin-top: 0.3rem; font-family: monospace; font-size: 0.7rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
+                        ${data.verification_comments || "No comments registered."}
+                    </div>
+                `;
+                detailsText.innerHTML = commentsHtml;
+
+                // Document previews
+                let docHtml = "";
+                if (data.pan_image_url) {
+                    const isMock = data.pan_image_url.includes("mock-cloud");
+                    docHtml += `
+                        <div class="document-preview-card">
+                            <span>PAN Document ${isMock ? '(Mock)' : ''}</span>
+                            <a href="${data.pan_image_url}" target="_blank">View Full Image &rarr;</a>
+                            <img src="${data.pan_image_url}" alt="PAN Document" onerror="this.src='https://placehold.co/300x150/111827/ffffff?text=PAN+Document'">
+                        </div>
+                    `;
+                }
+                if (data.aadhar_image_url) {
+                    const isMock = data.aadhar_image_url.includes("mock-cloud");
+                    docHtml += `
+                        <div class="document-preview-card">
+                            <span>Aadhaar Document ${isMock ? '(Mock)' : ''}</span>
+                            <a href="${data.aadhar_image_url}" target="_blank">View Full Image &rarr;</a>
+                            <img src="${data.aadhar_image_url}" alt="Aadhaar Document" onerror="this.src='https://placehold.co/300x150/111827/ffffff?text=Aadhaar+Document'">
+                        </div>
+                    `;
+                }
+                previewContainer.innerHTML = docHtml;
+
+                logToConsole("SUPPLIER STATUS", `Supplier #${supplierId} status: ${status.toUpperCase()}`);
+
+            } catch (err) {
+                statusBadge.innerText = "QUERY FAILED";
+                statusBadge.style.color = "var(--danger)";
+                detailsText.innerText = err.message;
+                logToConsole("ERROR", `Failed to get status for supplier #${supplierId}: ${err.message}`);
+            }
+        }
 
         // Load dashboard on startup
         window.onload = function() {
