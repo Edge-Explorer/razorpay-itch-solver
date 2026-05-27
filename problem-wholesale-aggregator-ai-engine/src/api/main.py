@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from src.api.router import router
 from src.services.redis import redis_service
 from src.config.settings import settings
@@ -6,6 +7,7 @@ from src.services.db import AsyncSessionLocal
 from src.models.orders import OrderPool
 from sqlalchemy import select
 import json
+import os
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -31,6 +33,17 @@ async def health_check():
         "engine": "BatchProcure AI Aggregator",
         "version": "1.0.0"
     }
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def serve_dashboard():
+    """Serves the Control Deck HTML frontend dashboard."""
+    template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "dashboard.html")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Dashboard HTML template not found.</h1>", status_code=404)
 
 # ==========================================
 # REAL-TIME POOL STATE BROADCAST (WebSockets)
